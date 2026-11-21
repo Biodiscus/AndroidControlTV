@@ -1,14 +1,51 @@
 <resources>
     <string name="app_name">AndroidControlTV</string>
 
-    <string name="home_title">AndroidControlTV</string>
-    <string name="home_address_label">TV address (for example 192.168.1.20)</string>
-    <string name="home_connect">Connect</string>
-    <string name="home_disconnect">Disconnect</string>
-    <string name="home_status_disconnected">Not connected</string>
-    <string name="home_status_connecting">Connecting… Accept the debugging prompt on your TV if it appears.</string>
-    <string name="home_status_connected">Connected to %1$s</string>
-    <string name="home_status_failed">Connection failed: %1$s</string>
+    <string name="overview_title">AndroidControlTV</string>
+    <string name="overview_address_label">TV address (for example 192.168.1.20)</string>
+    <string name="overview_connect">Connect</string>
+    <string name="overview_saved_tvs_title">Previously connected</string>
+    <string name="connection_status_disconnected">Not connected</string>
+    <string name="connection_status_connecting">Connecting… Accept the debugging prompt on your TV if it appears.</string>
+    <string name="connection_status_connected">Connected to %1$s</string>
+    <string name="connection_status_failed">Connection failed: %1$s</string>
+
+    <string name="debug_title">Debug tools</string>
+    <string name="debug_back">Back</string>
+    <string name="debug_run">Run</string>
+    <string name="debug_running">Running…</string>
+    <string name="debug_report_title">Debug report</string>
+    <string name="debug_copy">Copy report</string>
+    <string name="debug_copied">Report copied</string>
+
+    <string name="remote_open_debug_tools">Open debug tools</string>
+    <string name="remote_title">Remote control</string>
+    <string name="remote_back_to_overview">Back to overview</string>
+    <string name="remote_retry">Try again</string>
+
+    <string name="remote_message_sent_to_tv">Sent to TV: %1$s</string>
+    <string name="remote_message_app_launched">Launched %1$s</string>
+    <string name="remote_message_favorite_added">Added %1$s to favorites</string>
+    <string name="remote_message_favorite_removed">Removed %1$s from favorites</string>
+    <string name="remote_message_default_set">%1$s is now the default for the power button</string>
+    <string name="remote_message_default_cleared">%1$s is no longer the default for the power button</string>
+
+    <string name="remote_apps_title">Apps</string>
+    <string name="remote_apps_empty">No apps found on this TV.</string>
+    <string name="remote_favorites_title">Favorites</string>
+    <string name="remote_apps_favorites_hint">Long press an app to add it to your favorites.</string>
+    <string name="remote_app_show_options">Show options</string>
+    <string name="remote_app_add_favorite">Add to favorites</string>
+    <string name="remote_app_remove_favorite">Remove from favorites</string>
+    <string name="remote_apps_unavailable">The apps of this TV could not be loaded.</string>
+
+    <string name="power_menu_title">Power</string>
+    <string name="power_menu_cancel">Cancel</string>
+    <string name="power_menu_default_hint">Check an action to run it when you tap the power button.</string>
+    <string name="power_menu_use_as_default">Use %1$s as default for the power button</string>
+    <string name="power_action_reboot">Reboot</string>
+    <string name="power_action_sleep">Put to sleep</string>
+    <string name="power_action_power_off">Power off</string>
 
     <string name="remote_key_volume_up">Volume up</string>
     <string name="remote_key_volume_down">Volume down</string>

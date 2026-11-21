@@ -25,11 +25,30 @@ The project's own files win over the skill where they differ:
 - The app is a single `:app` module. Compose, Hilt (with KSP) and Navigation are set up. Room, a networking library and a real multi-module split are not. The packages are laid out like the modules of the skill (see "Project structure"), so a split later is mostly moving packages. Check the build files before assuming a dependency exists, and add it to the version catalog when a task needs it.
 - There are no convention plugins and no `build-logic/`. `generate_feature.py` creates api/impl modules and does not fit the single-module layout yet, so features are written by hand in `feature/<name>/`.
 
+## Debugging on the TV
+
+Some problems only happen on the user's real TV, and you must not test on a device. Do not guess: read `.claude/skills/android-debug-actions/SKILL.md` and write a debug action. It is a chain of steps that runs on the connected TV from the debug screen (remote screen, bug icon in the top bar) and gives the user a report to copy back to you. New actions go in `core/debug/DebugActionCatalog.kt`.
+
 ## Project structure
 
 ### What the app does
 
-Not decided yet. The app is a skeleton: one placeholder Home screen that proves Compose, Navigation, Hilt and the theme are wired up. Describe the real behaviour here when it exists.
+A remote control for an Android TV over ADB on the local network.
+
+- Without a saved TV the app starts on the overview, where the user types the IP address of the TV.
+- After a successful connection the address is saved (the last 10 TVs, most recent first) and the remote control opens.
+- The overview lists the TVs that were connected before. Tapping one connects to it.
+- With saved TVs the app starts on the remote control and connects to the most recent one by itself.
+- The back button on the remote control disconnects and returns to the overview.
+- When the ADB connection to the TV is lost, the next command reconnects to the same TV by itself and is sent again once. The remote stays on screen and only shows "Connection failed" when reconnecting fails too. A command that the TV refuses (non-zero exit) does not reconnect. Reboot and power off first check that the connection works, because a dead connection looks like a TV that shut down. The connection has a 15 second read timeout so a TV that vanished is noticed in time.
+- The remote screen has a bug icon in its top bar that opens the debug tools: a list of debug actions to run on the TV. Each run gives a step by step report on screen with a copy button, and the same report is written to logcat with tag `DebugAction` (also in release builds).
+- Every action on the remote screen shows a toast once it went well (a key or power action the TV accepted, an app launched, a favorite or the default power action changed). Nothing is shown when the TV did not accept the command, because the remote then shows the failed connection. A new toast replaces the one that is still visible.
+- Long pressing the power button on the remote opens a menu to reboot, put the TV to sleep or power it off. Reboot and power off end the connection, so the remote shows "Not connected" afterwards.
+- Each action in that menu has a checkbox. The checked action becomes the default: a tap on the power button runs it instead of sending the plain power key. No checked action means a tap sends the power key.
+- Below the remote the apps of the TV (the apps that have a TV launcher entry) are shown in a grid with their real name and icon. Tapping an app launches it. Failing to load the apps does not disconnect the remote.
+- The apps are cached per TV in the app's cache folder (`core/cache`). The cached grid shows at once and is replaced by the fresh list when the TV answers. Only a list with real names and icons is cached, so the plain package-name fallback never replaces a good cached list.
+- Long pressing an app tile opens a menu to add it to the favorites or remove it again. Favorites are shown in their own "Favorites" section above the "Apps" heading and are not repeated in the apps below. They are stored by package name for all TVs together.
+- The names and icons come from a helper: the app pushes its own APK to `/data/local/tmp` on the TV once and runs `TvHelperMain` (package `tvhelper`) there with `app_process`. It uses hidden Android APIs, so it can fail on some TVs. Then the grid falls back to package names with a generic icon. `TvHelperMain` runs on the TV, so it only uses Android and Kotlin classes and carries `@Keep` so the release build does not remove it.
 
 ### Packages (`app/src/main/java/net/biodiscus/androidcontroltv/`)
 
@@ -37,8 +56,10 @@ Each top-level package is shaped like a module of the skill. Keep the dependency
 
 ```
 core/               Pure Kotlin and data layers, one package per concern (model, repositories, ...). Depends on nothing in feature/ or ui/.
-feature/home/       The placeholder start screen: navigation destination, screen.
-ui/                 Theme and preview annotations.
+feature/overview/   Enter the TV address and connect.
+feature/remote/     The remote control for the connected TV.
+feature/debug/      The debug screen that runs debug actions on the TV.
+ui/                 Theme, preview annotations and composables shared by features.
 ```
 
 A feature package holds its navigation entry (`<Name>Navigation.kt`: a `@Serializable` destination plus a `NavGraphBuilder` extension), its route/screen, ViewModel and UiState. Each `*Module.kt` under a `di/` folder holds the Hilt bindings of its package. Everything is `internal` except what Android or Hilt must see (Application, Activity, Service, repositories used by ViewModels).

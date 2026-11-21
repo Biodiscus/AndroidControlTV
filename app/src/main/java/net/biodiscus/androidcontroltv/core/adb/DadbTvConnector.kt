@@ -23,7 +23,7 @@ internal class DadbTvConnector @Inject constructor(
 
     private suspend fun createShell(address: TvAddress): TvShell = withContext(Dispatchers.IO) {
         val keyPair = loadOrCreateKeyPair()
-        val dadb = Dadb.create(address.host, address.port, keyPair, CONNECT_TIMEOUT_MILLIS, NO_SOCKET_TIMEOUT)
+        val dadb = Dadb.create(address.host, address.port, keyPair, CONNECT_TIMEOUT_MILLIS, READ_TIMEOUT_MILLIS)
         DadbTvShell(dadb)
     }
 
@@ -31,7 +31,7 @@ internal class DadbTvConnector @Inject constructor(
     // a declined "Allow USB debugging?" prompt would only show up on the first key press.
     private suspend fun confirmTvAnswers(shell: TvShell) {
         try {
-            shell.runCommand(HANDSHAKE_COMMAND)
+            shell.runCommand(CONNECTION_CHECK_COMMAND)
         } catch (error: IOException) {
             shell.close()
             throw error
@@ -50,8 +50,10 @@ internal class DadbTvConnector @Inject constructor(
     private companion object {
         const val PRIVATE_KEY_FILE_NAME = "adbkey"
         const val PUBLIC_KEY_FILE_NAME = "adbkey.pub"
-        const val HANDSHAKE_COMMAND = "echo connected"
         const val CONNECT_TIMEOUT_MILLIS = 5_000
-        const val NO_SOCKET_TIMEOUT = 0
+
+        // Without a read timeout a command to a TV that went off without closing the connection hangs for minutes
+        // before it fails, and the reconnect that follows a failed command would come far too late.
+        const val READ_TIMEOUT_MILLIS = 15_000
     }
 }

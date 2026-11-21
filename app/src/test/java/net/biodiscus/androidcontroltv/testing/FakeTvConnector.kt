@@ -5,7 +5,10 @@ import net.biodiscus.androidcontroltv.core.adb.TvConnector
 import net.biodiscus.androidcontroltv.core.adb.TvShell
 import net.biodiscus.androidcontroltv.core.model.TvAddress
 
-internal class FakeTvConnector(private val shell: TvShell) : TvConnector {
+/** Hands out the given shells one by one, one per connection, and keeps handing out the last one. */
+internal class FakeTvConnector(firstShell: TvShell, vararg laterShells: TvShell) : TvConnector {
+
+    private val shells = listOf(firstShell) + laterShells
 
     val connectedAddresses = mutableListOf<TvAddress>()
     var errorOnConnect: IOException? = null
@@ -13,6 +16,7 @@ internal class FakeTvConnector(private val shell: TvShell) : TvConnector {
     override suspend fun connect(address: TvAddress): TvShell {
         val error = errorOnConnect
         if (error != null) throw error
+        val shell = shells[minOf(connectedAddresses.size, shells.lastIndex)]
         connectedAddresses += address
         return shell
     }
