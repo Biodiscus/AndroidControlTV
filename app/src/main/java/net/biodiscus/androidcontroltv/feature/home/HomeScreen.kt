@@ -5,11 +5,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -66,7 +63,7 @@ internal fun HomeScreen(
             ConnectionButton(uiState, onConnectClick, onDisconnectClick)
             ConnectionStatus(uiState.connectionState)
             if (uiState.connectionState is TvConnectionState.Connected) {
-                RemoteKeyList(onKeyClick)
+                RemoteControl(onKeyClick)
             }
         }
     }
@@ -120,17 +117,6 @@ private fun ConnectionStatus(connectionState: TvConnectionState) {
         is TvConnectionState.Failed -> stringResource(R.string.home_status_failed, connectionState.reason)
     }
     Text(text = statusText, style = MaterialTheme.typography.bodyMedium)
-}
-
-@Composable
-private fun RemoteKeyList(onKeyClick: (RemoteKey) -> Unit) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(RemoteKey.entries) { key ->
-            FilledTonalButton(onClick = { onKeyClick(key) }, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(labelFor(key)))
-            }
-        }
-    }
 }
 
 private class HomeUiStatePreviewProvider : PreviewParameterProvider<HomeUiState> {
