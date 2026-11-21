@@ -9,6 +9,6 @@ internal data object HomeDestination
 
 internal fun NavGraphBuilder.homeScreen() {
     composable<HomeDestination> {
-        HomeScreen()
+        HomeRoute()
     }
 }

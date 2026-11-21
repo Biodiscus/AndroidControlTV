@@ -1,0 +1,16 @@
+package net.biodiscus.androidcontroltv.core.model
+
+enum class RemoteKey(val androidKeyName: String) {
+    VOLUME_UP("KEYCODE_VOLUME_UP"),
+    VOLUME_DOWN("KEYCODE_VOLUME_DOWN"),
+    MUTE("KEYCODE_VOLUME_MUTE"),
+    POWER("KEYCODE_POWER"),
+    HOME("KEYCODE_HOME"),
+    BACK("KEYCODE_BACK"),
+    UP("KEYCODE_DPAD_UP"),
+    DOWN("KEYCODE_DPAD_DOWN"),
+    LEFT("KEYCODE_DPAD_LEFT"),
+    RIGHT("KEYCODE_DPAD_RIGHT"),
+    SELECT("KEYCODE_DPAD_CENTER"),
+    PLAY_PAUSE("KEYCODE_MEDIA_PLAY_PAUSE"),
+}

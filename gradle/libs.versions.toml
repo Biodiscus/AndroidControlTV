@@ -15,6 +15,7 @@ junit = "4.13.2"
 junitVersion = "1.1.5"
 turbine = "1.2.1"
 timber = "5.0.1"
+dadb = "2.0.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -41,6 +42,7 @@ kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serializationJson" }
 
 timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
+dadb = { group = "dev.mobile", name = "dadb", version.ref = "dadb" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }

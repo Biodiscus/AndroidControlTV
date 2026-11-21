@@ -2,4 +2,24 @@
     <string name="app_name">AndroidControlTV</string>
 
     <string name="home_title">AndroidControlTV</string>
+    <string name="home_address_label">TV address (for example 192.168.1.20)</string>
+    <string name="home_connect">Connect</string>
+    <string name="home_disconnect">Disconnect</string>
+    <string name="home_status_disconnected">Not connected</string>
+    <string name="home_status_connecting">Connecting… Accept the debugging prompt on your TV if it appears.</string>
+    <string name="home_status_connected">Connected to %1$s</string>
+    <string name="home_status_failed">Connection failed: %1$s</string>
+
+    <string name="remote_key_volume_up">Volume up</string>
+    <string name="remote_key_volume_down">Volume down</string>
+    <string name="remote_key_mute">Mute</string>
+    <string name="remote_key_power">Power</string>
+    <string name="remote_key_home">Home</string>
+    <string name="remote_key_back">Back</string>
+    <string name="remote_key_up">Up</string>
+    <string name="remote_key_down">Down</string>
+    <string name="remote_key_left">Left</string>
+    <string name="remote_key_right">Right</string>
+    <string name="remote_key_select">OK</string>
+    <string name="remote_key_play_pause">Play / pause</string>
 </resources>
