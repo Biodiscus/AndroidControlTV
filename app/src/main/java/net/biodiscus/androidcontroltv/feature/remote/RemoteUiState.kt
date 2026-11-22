@@ -9,4 +9,5 @@ internal data class RemoteUiState(
     val defaultPowerAction: PowerAction? = null,
     val tvApps: TvAppsState = TvAppsState.Loading,
     val favoritePackageNames: Set<String> = emptySet(),
+    val isCommandBlinking: Boolean = false,
 )

@@ -3,6 +3,7 @@ package net.biodiscus.androidcontroltv.core.adb
 import java.io.IOException
 import kotlinx.coroutines.test.runTest
 import net.biodiscus.androidcontroltv.core.model.TvApp
+import net.biodiscus.androidcontroltv.core.model.TvSystemApp
 import net.biodiscus.androidcontroltv.testing.FakeTvHelperApk
 import net.biodiscus.androidcontroltv.testing.FakeTvShell
 import org.junit.Assert.assertEquals
@@ -54,6 +55,28 @@ class AdbTvAppLoaderTest {
         shell.respondTo(LIST_LAUNCHABLE_APPS_COMMAND, "org.plain/org.plain.Main")
 
         assertFalse(loader.load(shell).hasNamesAndIcons)
+    }
+
+    @Test
+    fun `system apps are loaded from the helper on the TV`() = runTest {
+        givenHelperIsInstalled()
+        givenHelperReports("$helperOutput\nSYSTEM_APP\tcom.android.settings\tU2V0dGluZ3M=\t")
+
+        val loaded = loader.load(shell)
+
+        assertEquals(listOf(TvSystemApp("com.android.settings", "Settings")), loaded.systemApps)
+    }
+
+    @Test
+    fun `system apps are loaded from the plain list when the helper fails`() = runTest {
+        givenHelperIsInstalled()
+        givenHelperReports("")
+        shell.respondTo(LIST_LAUNCHABLE_APPS_COMMAND, "org.plain/org.plain.Main")
+        shell.respondTo(LIST_SYSTEM_PACKAGES_COMMAND, "package:com.android.settings")
+
+        val loaded = loader.load(shell)
+
+        assertEquals(listOf(TvSystemApp("com.android.settings", "com.android.settings")), loaded.systemApps)
     }
 
     @Test

@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -42,6 +43,7 @@ import net.biodiscus.androidcontroltv.core.model.RemoteKey
 import net.biodiscus.androidcontroltv.core.model.TvAddress
 import net.biodiscus.androidcontroltv.core.model.TvApp
 import net.biodiscus.androidcontroltv.core.model.TvAppsState
+import net.biodiscus.androidcontroltv.core.model.TvSystemApp
 import net.biodiscus.androidcontroltv.core.model.TvConnectionState
 import net.biodiscus.androidcontroltv.ui.ConnectionStatus
 import net.biodiscus.androidcontroltv.ui.RequestLocalNetworkPermission
@@ -68,10 +70,13 @@ internal fun RemoteRoute(
         onDebugClick = onDebugClick,
         onRetryClick = viewModel::onRetryClick,
         onKeyClick = viewModel::onKeyClick,
+        onTextSend = viewModel::onTextSend,
         onPowerActionClick = viewModel::onPowerActionClick,
         onDefaultPowerActionChange = viewModel::onDefaultPowerActionChange,
         onAppClick = viewModel::onAppClick,
         onAppFavoriteChange = viewModel::onAppFavoriteChange,
+        onAppUninstallConfirm = viewModel::onAppUninstallConfirm,
+        onSystemAppClick = viewModel::onSystemAppClick,
     )
 }
 
@@ -82,7 +87,7 @@ private fun ShowMessagesAsToasts(messages: Flow<RemoteMessage>) {
     LaunchedEffect(messages) {
         var visibleToast: Toast? = null
         messages.collect { message ->
-            // Pressing keys quickly must replace the toast and not queue up one toast per press.
+            // A new message must replace the toast and not queue up behind it.
             visibleToast?.cancel()
             val newToast = Toast.makeText(context, createMessageText(context, message), Toast.LENGTH_SHORT)
             newToast.show()
@@ -98,26 +103,35 @@ internal fun RemoteScreen(
     onDebugClick: () -> Unit,
     onRetryClick: () -> Unit,
     onKeyClick: (RemoteKey) -> Unit,
+    onTextSend: (String) -> Unit,
     onPowerActionClick: (PowerAction) -> Unit,
     onDefaultPowerActionChange: (PowerAction, Boolean) -> Unit,
     onAppClick: (TvApp) -> Unit,
     onAppFavoriteChange: (TvApp, Boolean) -> Unit,
+    onAppUninstallConfirm: (TvApp) -> Unit,
+    onSystemAppClick: (TvSystemApp) -> Unit,
 ) {
     var isPowerMenuVisible by rememberSaveable { mutableStateOf(false) }
+    var isTextInputVisible by rememberSaveable { mutableStateOf(false) }
 
-    Scaffold(topBar = { RemoteTopBar(onBackClick, onDebugClick) }) { innerPadding ->
+    val isConnected = uiState.connectionState is TvConnectionState.Connected
+
+    Scaffold(topBar = { RemoteTopBar(isConnected, uiState.isCommandBlinking, onBackClick, onDebugClick) }) { innerPadding ->
         val contentModifier = Modifier
             .fillMaxSize()
             .padding(innerPadding)
             .padding(16.dp)
 
-        if (uiState.connectionState is TvConnectionState.Connected) {
+        if (isConnected) {
             ConnectedContent(
                 uiState = uiState,
                 onKeyClick = onKeyClick,
+                onTextInputClick = { isTextInputVisible = true },
                 onPowerLongClick = { isPowerMenuVisible = true },
                 onAppClick = onAppClick,
                 onAppFavoriteChange = onAppFavoriteChange,
+                onAppUninstallConfirm = onAppUninstallConfirm,
+                onSystemAppClick = onSystemAppClick,
                 modifier = contentModifier,
             )
         } else {
@@ -136,17 +150,32 @@ internal fun RemoteScreen(
             onDismiss = { isPowerMenuVisible = false },
         )
     }
+
+    if (isTextInputVisible) {
+        TextInputDialog(
+            onSend = { text ->
+                isTextInputVisible = false
+                onTextSend(text)
+            },
+            onDismiss = { isTextInputVisible = false },
+        )
+    }
 }
 
 @Composable
 private fun ConnectedContent(
     uiState: RemoteUiState,
     onKeyClick: (RemoteKey) -> Unit,
+    onTextInputClick: () -> Unit,
     onPowerLongClick: () -> Unit,
     onAppClick: (TvApp) -> Unit,
     onAppFavoriteChange: (TvApp, Boolean) -> Unit,
+    onAppUninstallConfirm: (TvApp) -> Unit,
+    onSystemAppClick: (TvSystemApp) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var areSystemAppsExpanded by rememberSaveable { mutableStateOf(false) }
+
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = AppTileMinWidth),
         modifier = modifier,
@@ -156,6 +185,7 @@ private fun ConnectedContent(
         item(span = { GridItemSpan(maxLineSpan) }) {
             RemoteControl(
                 onKeyClick = onKeyClick,
+                onTextInputClick = onTextInputClick,
                 onPowerLongClick = onPowerLongClick,
                 defaultPowerAction = uiState.defaultPowerAction,
             )
@@ -165,15 +195,29 @@ private fun ConnectedContent(
             favoritePackageNames = uiState.favoritePackageNames,
             onAppClick = onAppClick,
             onAppFavoriteChange = onAppFavoriteChange,
+            onAppUninstallConfirm = onAppUninstallConfirm,
+            areSystemAppsExpanded = areSystemAppsExpanded,
+            onSystemAppsToggle = { areSystemAppsExpanded = !areSystemAppsExpanded },
+            onSystemAppClick = onSystemAppClick,
         )
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun RemoteTopBar(onBackClick: () -> Unit, onDebugClick: () -> Unit) {
+private fun RemoteTopBar(
+    isConnected: Boolean,
+    isCommandBlinking: Boolean,
+    onBackClick: () -> Unit,
+    onDebugClick: () -> Unit,
+) {
     TopAppBar(
-        title = { Text(stringResource(R.string.remote_title)) },
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(R.string.remote_title))
+                ConnectionIndicator(isConnected, isCommandBlinking)
+            }
+        },
         navigationIcon = {
             IconButton(onClick = onBackClick) {
                 Icon(
@@ -219,11 +263,16 @@ private val previewApps = listOf(
     TvApp("com.example.tv", ".MainActivity", "An app with a very long name"),
 )
 
+private val previewSystemApps = listOf(
+    TvSystemApp("com.android.settings", "Settings"),
+    TvSystemApp("com.android.providers.tv", "Live Channels"),
+)
+
 private class RemoteUiStatePreviewProvider : PreviewParameterProvider<RemoteUiState> {
     override val values = sequenceOf(
         RemoteUiState(
             connectionState = TvConnectionState.Connected(TvAddress("192.168.1.20", 5555)),
-            tvApps = TvAppsState.Loaded(previewApps),
+            tvApps = TvAppsState.Loaded(previewApps, previewSystemApps),
             favoritePackageNames = setOf("com.netflix.ninja"),
         ),
         RemoteUiState(TvConnectionState.Connecting),
@@ -241,10 +290,13 @@ private fun RemoteScreenPreview(@PreviewParameter(RemoteUiStatePreviewProvider::
             onDebugClick = {},
             onRetryClick = {},
             onKeyClick = {},
+            onTextSend = {},
             onPowerActionClick = {},
             onDefaultPowerActionChange = { _, _ -> },
             onAppClick = {},
             onAppFavoriteChange = { _, _ -> },
+            onAppUninstallConfirm = {},
+            onSystemAppClick = {},
         )
     }
 }

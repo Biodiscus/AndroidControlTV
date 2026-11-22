@@ -6,11 +6,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asFlow
 import net.biodiscus.androidcontroltv.core.debug.DebugAction
 import net.biodiscus.androidcontroltv.core.debug.DebugReport
+import net.biodiscus.androidcontroltv.core.model.AppUninstallResult
 import net.biodiscus.androidcontroltv.core.model.PowerAction
 import net.biodiscus.androidcontroltv.core.model.RemoteKey
 import net.biodiscus.androidcontroltv.core.model.TvAddress
 import net.biodiscus.androidcontroltv.core.model.TvApp
 import net.biodiscus.androidcontroltv.core.model.TvAppsState
+import net.biodiscus.androidcontroltv.core.model.TvSystemApp
 import net.biodiscus.androidcontroltv.core.model.TvConnectionState
 import net.biodiscus.androidcontroltv.core.repository.TvRepository
 
@@ -27,7 +29,11 @@ class FakeTvRepository : TvRepository {
     val connectedAddresses = mutableListOf<TvAddress>()
     val sentKeys = mutableListOf<RemoteKey>()
     val sentPowerActions = mutableListOf<PowerAction>()
+    val sentTexts = mutableListOf<String>()
     val launchedApps = mutableListOf<TvApp>()
+    val uninstalledApps = mutableListOf<TvApp>()
+    val openedSystemApps = mutableListOf<TvSystemApp>()
+    var uninstallResult = AppUninstallResult.UNINSTALLED
     var disconnectCount = 0
         private set
 
@@ -57,11 +63,26 @@ class FakeTvRepository : TvRepository {
         return commandsSucceed
     }
 
+    override suspend fun sendText(text: String): Boolean {
+        sentTexts += text
+        return commandsSucceed
+    }
+
     override fun loadApps(): Flow<TvAppsState> = appsStates.asFlow()
 
     override suspend fun launchApp(app: TvApp): Boolean {
         launchedApps += app
         return commandsSucceed
+    }
+
+    override suspend fun openSystemAppInfo(app: TvSystemApp): Boolean {
+        openedSystemApps += app
+        return commandsSucceed
+    }
+
+    override suspend fun uninstallApp(app: TvApp): AppUninstallResult {
+        uninstalledApps += app
+        return uninstallResult
     }
 
     override suspend fun runDebugAction(action: DebugAction): DebugReport {

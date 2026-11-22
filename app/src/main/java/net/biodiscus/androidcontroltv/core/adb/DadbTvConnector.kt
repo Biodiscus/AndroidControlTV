@@ -16,16 +16,39 @@ internal class DadbTvConnector @Inject constructor(
 ) : TvConnector {
 
     override suspend fun connect(address: TvAddress): TvShell {
-        val shell = createShell(address)
+        val keyPair = withContext(Dispatchers.IO) { loadOrCreateKeyPair() }
+        try {
+            waitUntilTvTrustsThisApp(address, keyPair)
+            return openCheckedShell(address, keyPair)
+        } catch (error: IOException) {
+            throw explainConnectionError(error)
+        }
+    }
+
+    // A TV that has not seen this app's key yet asks "Allow USB debugging?" and holds the handshake until the
+    // user answers. That can take longer than the read timeout of the shell, which must stay short to notice a
+    // TV that vanished. So the first connection gets a long timeout and is closed again right after the TV
+    // trusts the app. When the user ticked "Always allow", the real connection that follows needs no prompt.
+    private suspend fun waitUntilTvTrustsThisApp(address: TvAddress, keyPair: AdbKeyPair) {
+        val shell = createShell(address, keyPair, AUTHORIZATION_TIMEOUT_MILLIS)
+        try {
+            shell.runCommand(CONNECTION_CHECK_COMMAND)
+        } finally {
+            shell.close()
+        }
+    }
+
+    private suspend fun openCheckedShell(address: TvAddress, keyPair: AdbKeyPair): TvShell {
+        val shell = createShell(address, keyPair, READ_TIMEOUT_MILLIS)
         confirmTvAnswers(shell)
         return shell
     }
 
-    private suspend fun createShell(address: TvAddress): TvShell = withContext(Dispatchers.IO) {
-        val keyPair = loadOrCreateKeyPair()
-        val dadb = Dadb.create(address.host, address.port, keyPair, CONNECT_TIMEOUT_MILLIS, READ_TIMEOUT_MILLIS)
-        DadbTvShell(dadb)
-    }
+    private suspend fun createShell(address: TvAddress, keyPair: AdbKeyPair, readTimeoutMillis: Int): TvShell =
+        withContext(Dispatchers.IO) {
+            val dadb = Dadb.create(address.host, address.port, keyPair, CONNECT_TIMEOUT_MILLIS, readTimeoutMillis)
+            DadbTvShell(dadb)
+        }
 
     // Dadb opens its connection lazily, so without a first command a wrong address or
     // a declined "Allow USB debugging?" prompt would only show up on the first key press.
@@ -55,5 +78,7 @@ internal class DadbTvConnector @Inject constructor(
         // Without a read timeout a command to a TV that went off without closing the connection hangs for minutes
         // before it fails, and the reconnect that follows a failed command would come far too late.
         const val READ_TIMEOUT_MILLIS = 15_000
+
+        const val AUTHORIZATION_TIMEOUT_MILLIS = 60_000
     }
 }

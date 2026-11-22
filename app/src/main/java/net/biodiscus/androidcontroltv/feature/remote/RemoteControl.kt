@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Keyboard
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -38,6 +39,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import net.biodiscus.androidcontroltv.R
 import net.biodiscus.androidcontroltv.core.model.PowerAction
 import net.biodiscus.androidcontroltv.core.model.RemoteKey
 import net.biodiscus.androidcontroltv.ui.ThemePreviews
@@ -51,6 +53,7 @@ private val DirectionArrowSize = 72.dp
 @Composable
 internal fun RemoteControl(
     onKeyClick: (RemoteKey) -> Unit,
+    onTextInputClick: () -> Unit,
     onPowerLongClick: () -> Unit,
     modifier: Modifier = Modifier,
     defaultPowerAction: PowerAction? = null,
@@ -62,7 +65,7 @@ internal fun RemoteControl(
     ) {
         PowerAndMuteRow(onKeyClick, onPowerLongClick, defaultPowerAction)
         DirectionPad(onKeyClick)
-        BackPlayHomeRow(onKeyClick)
+        BackPlayHomeRow(onKeyClick, onTextInputClick)
         VolumeRocker(onKeyClick)
     }
 }
@@ -141,7 +144,7 @@ private fun BoxScope.DirectionArrow(
 }
 
 @Composable
-private fun BackPlayHomeRow(onKeyClick: (RemoteKey) -> Unit) {
+private fun BackPlayHomeRow(onKeyClick: (RemoteKey) -> Unit, onTextInputClick: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
         RemoteRoundButton(key = RemoteKey.BACK, onKeyClick = onKeyClick) {
             KeyIcon(RemoteKey.BACK, Icons.AutoMirrored.Rounded.ArrowBack)
@@ -151,6 +154,12 @@ private fun BackPlayHomeRow(onKeyClick: (RemoteKey) -> Unit) {
         }
         RemoteRoundButton(key = RemoteKey.HOME, onKeyClick = onKeyClick) {
             KeyIcon(RemoteKey.HOME, Icons.Rounded.Home)
+        }
+        RoundButton(onClick = onTextInputClick) {
+            Icon(
+                imageVector = Icons.Rounded.Keyboard,
+                contentDescription = stringResource(R.string.remote_open_text_input),
+            )
         }
     }
 }
@@ -200,12 +209,31 @@ private fun RemoteRoundButton(
     onLongClick: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
+    RoundButton(
+        onClick = { onKeyClick(key) },
+        containerColor = containerColor,
+        contentColor = contentColor,
+        size = size,
+        onLongClick = onLongClick,
+        content = content,
+    )
+}
+
+@Composable
+private fun RoundButton(
+    onClick: () -> Unit,
+    containerColor: Color = MaterialTheme.colorScheme.secondaryContainer,
+    contentColor: Color = MaterialTheme.colorScheme.onSecondaryContainer,
+    size: Dp = RoundButtonSize,
+    onLongClick: (() -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
     Box(
         modifier = Modifier
             .size(size)
             .clip(CircleShape)
             .background(containerColor)
-            .combinedClickable(role = Role.Button, onClick = { onKeyClick(key) }, onLongClick = onLongClick),
+            .combinedClickable(role = Role.Button, onClick = onClick, onLongClick = onLongClick),
         contentAlignment = Alignment.Center,
     ) {
         CompositionLocalProvider(LocalContentColor provides contentColor, content = content)
@@ -217,7 +245,12 @@ private fun RemoteRoundButton(
 private fun RemoteControlPreview() {
     AndroidControlTVTheme {
         Surface {
-            RemoteControl(onKeyClick = {}, onPowerLongClick = {}, modifier = Modifier.padding(16.dp))
+            RemoteControl(
+                onKeyClick = {},
+                onTextInputClick = {},
+                onPowerLongClick = {},
+                modifier = Modifier.padding(16.dp),
+            )
         }
     }
 }

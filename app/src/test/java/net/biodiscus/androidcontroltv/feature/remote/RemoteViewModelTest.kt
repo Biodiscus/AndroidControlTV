@@ -1,5 +1,6 @@
 package net.biodiscus.androidcontroltv.feature.remote
 
+import net.biodiscus.androidcontroltv.core.model.AppUninstallResult
 import net.biodiscus.androidcontroltv.core.model.PowerAction
 import net.biodiscus.androidcontroltv.core.model.RemoteKey
 import net.biodiscus.androidcontroltv.core.model.TvAddress
@@ -11,10 +12,14 @@ import net.biodiscus.androidcontroltv.testing.FakeSavedTvRepository
 import net.biodiscus.androidcontroltv.testing.FakeTvRepository
 import net.biodiscus.androidcontroltv.testing.MainDispatcherRule
 import net.biodiscus.androidcontroltv.testing.createTvApp
+import net.biodiscus.androidcontroltv.testing.createTvSystemApp
 import app.cash.turbine.test
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -83,6 +88,47 @@ class RemoteViewModelTest {
         viewModel.onKeyClick(RemoteKey.VOLUME_DOWN)
 
         assertEquals(listOf(RemoteKey.VOLUME_DOWN), tvRepository.sentKeys)
+    }
+
+    @Test
+    fun `sending text sends that text to the TV`() {
+        val viewModel = createViewModel()
+
+        viewModel.onTextSend("star wars")
+
+        assertEquals(listOf("star wars"), tvRepository.sentTexts)
+    }
+
+    @Test
+    fun `sending empty text sends nothing to the TV`() {
+        val viewModel = createViewModel()
+
+        viewModel.onTextSend("")
+
+        assertTrue(tvRepository.sentTexts.isEmpty())
+    }
+
+    @Test
+    fun `sending text makes the indicator blink`() = runTest {
+        val viewModel = createViewModel()
+
+        viewModel.uiState.test {
+            viewModel.onTextSend("star wars")
+
+            assertTrue(expectMostRecentItem().isCommandBlinking)
+        }
+    }
+
+    @Test
+    fun `text that the TV did not accept does not make the indicator blink`() = runTest {
+        val viewModel = createViewModel()
+        tvRepository.commandsSucceed = false
+
+        viewModel.uiState.test {
+            viewModel.onTextSend("star wars")
+
+            assertFalse(expectMostRecentItem().isCommandBlinking)
+        }
     }
 
     @Test
@@ -207,141 +253,205 @@ class RemoteViewModelTest {
     }
 
     @Test
-    fun `pressing a key shows that it was sent to the TV`() = runTest {
+    fun `pressing a key makes the indicator blink`() = runTest {
         val viewModel = createViewModel()
 
-        viewModel.messages.test {
+        viewModel.uiState.test {
             viewModel.onKeyClick(RemoteKey.VOLUME_UP)
 
-            assertEquals(RemoteMessage.KeySent(RemoteKey.VOLUME_UP), awaitItem())
+            assertTrue(expectMostRecentItem().isCommandBlinking)
         }
     }
 
     @Test
-    fun `a key that the TV did not accept shows nothing`() = runTest {
+    fun `a key that the TV did not accept does not make the indicator blink`() = runTest {
         val viewModel = createViewModel()
         tvRepository.commandsSucceed = false
 
-        viewModel.messages.test {
+        viewModel.uiState.test {
             viewModel.onKeyClick(RemoteKey.VOLUME_UP)
 
-            expectNoEvents()
+            assertFalse(expectMostRecentItem().isCommandBlinking)
         }
     }
 
     @Test
-    fun `tapping power without a default action shows that the power key was sent`() = runTest {
+    fun `tapping power without a default action makes the indicator blink`() = runTest {
         val viewModel = createViewModel()
 
-        viewModel.messages.test {
+        viewModel.uiState.test {
             viewModel.onKeyClick(RemoteKey.POWER)
 
-            assertEquals(RemoteMessage.KeySent(RemoteKey.POWER), awaitItem())
+            assertTrue(expectMostRecentItem().isCommandBlinking)
         }
     }
 
     @Test
-    fun `tapping power with a default action shows that the action was sent`() = runTest {
+    fun `tapping power with a default action makes the indicator blink`() = runTest {
         powerSettings = FakePowerSettingsRepository(PowerAction.SLEEP)
         val viewModel = createViewModel()
 
-        viewModel.messages.test {
+        viewModel.uiState.test {
             viewModel.onKeyClick(RemoteKey.POWER)
 
-            assertEquals(RemoteMessage.PowerActionSent(PowerAction.SLEEP), awaitItem())
+            assertTrue(expectMostRecentItem().isCommandBlinking)
         }
     }
 
     @Test
-    fun `choosing a power action shows that it was sent`() = runTest {
+    fun `choosing a power action makes the indicator blink`() = runTest {
         val viewModel = createViewModel()
 
-        viewModel.messages.test {
+        viewModel.uiState.test {
             viewModel.onPowerActionClick(PowerAction.REBOOT)
 
-            assertEquals(RemoteMessage.PowerActionSent(PowerAction.REBOOT), awaitItem())
+            assertTrue(expectMostRecentItem().isCommandBlinking)
         }
     }
 
     @Test
-    fun `a power action that the TV did not accept shows nothing`() = runTest {
+    fun `a power action that the TV did not accept does not make the indicator blink`() = runTest {
         val viewModel = createViewModel()
         tvRepository.commandsSucceed = false
 
-        viewModel.messages.test {
+        viewModel.uiState.test {
             viewModel.onPowerActionClick(PowerAction.REBOOT)
 
-            expectNoEvents()
+            assertFalse(expectMostRecentItem().isCommandBlinking)
         }
     }
 
     @Test
-    fun `launching an app shows that it was launched`() = runTest {
+    fun `launching an app makes the indicator blink`() = runTest {
         val viewModel = createViewModel()
         val app = createTvApp(packageName = "com.netflix.ninja", label = "Netflix")
 
-        viewModel.messages.test {
+        viewModel.uiState.test {
             viewModel.onAppClick(app)
 
-            assertEquals(RemoteMessage.AppLaunched(app), awaitItem())
+            assertTrue(expectMostRecentItem().isCommandBlinking)
         }
     }
 
     @Test
-    fun `an app launch that the TV did not accept shows nothing`() = runTest {
+    fun `an app launch that the TV did not accept does not make the indicator blink`() = runTest {
         val viewModel = createViewModel()
         tvRepository.commandsSucceed = false
 
-        viewModel.messages.test {
+        viewModel.uiState.test {
             viewModel.onAppClick(createTvApp())
 
-            expectNoEvents()
+            assertFalse(expectMostRecentItem().isCommandBlinking)
         }
     }
 
     @Test
-    fun `adding a favorite shows that it was added`() = runTest {
+    fun `confirming an uninstall asks the TV to uninstall the app`() = runTest {
         val viewModel = createViewModel()
-        val app = createTvApp(packageName = "com.netflix.ninja", label = "Netflix")
+        val app = createTvApp(packageName = "com.netflix.ninja")
 
-        viewModel.messages.test {
-            viewModel.onAppFavoriteChange(app, isFavorite = true)
+        viewModel.onAppUninstallConfirm(app)
 
-            assertEquals(RemoteMessage.FavoriteChanged(app, isFavorite = true), awaitItem())
+        assertEquals(listOf(app), tvRepository.uninstalledApps)
+    }
+
+    @Test
+    fun `an uninstalled app is no longer shown`() = runTest {
+        val keptApp = createTvApp(packageName = "com.kept")
+        val removedApp = createTvApp(packageName = "com.removed")
+        tvRepository.appsStates = listOf(TvAppsState.Loaded(listOf(keptApp, removedApp)))
+        val viewModel = createViewModel()
+
+        viewModel.uiState.test {
+            viewModel.onAppUninstallConfirm(removedApp)
+
+            assertEquals(TvAppsState.Loaded(listOf(keptApp)), expectMostRecentItem().tvApps)
         }
     }
 
     @Test
-    fun `removing a favorite shows that it was removed`() = runTest {
+    fun `uninstalling an app makes the indicator blink`() = runTest {
         val viewModel = createViewModel()
-        val app = createTvApp(packageName = "com.netflix.ninja", label = "Netflix")
+        val app = createTvApp(label = "Netflix")
 
-        viewModel.messages.test {
-            viewModel.onAppFavoriteChange(app, isFavorite = false)
+        viewModel.uiState.test {
+            viewModel.onAppUninstallConfirm(app)
 
-            assertEquals(RemoteMessage.FavoriteChanged(app, isFavorite = false), awaitItem())
+            assertTrue(expectMostRecentItem().isCommandBlinking)
         }
     }
 
     @Test
-    fun `choosing a default power action shows that it was set`() = runTest {
+    fun `an app that the TV refuses to uninstall shows that it was refused`() = runTest {
         val viewModel = createViewModel()
+        val app = createTvApp(label = "Live TV")
+        tvRepository.uninstallResult = AppUninstallResult.REFUSED
 
         viewModel.messages.test {
-            viewModel.onDefaultPowerActionChange(PowerAction.SLEEP, isDefault = true)
+            viewModel.onAppUninstallConfirm(app)
 
-            assertEquals(RemoteMessage.DefaultPowerActionChanged(PowerAction.SLEEP, isDefault = true), awaitItem())
+            assertEquals(RemoteMessage.AppUninstallRefused(app), awaitItem())
         }
     }
 
     @Test
-    fun `clearing the default power action shows that it was cleared`() = runTest {
+    fun `an app that the TV refuses to uninstall stays in the list`() = runTest {
+        val app = createTvApp()
+        val apps = TvAppsState.Loaded(listOf(app))
+        tvRepository.appsStates = listOf(apps)
+        tvRepository.uninstallResult = AppUninstallResult.REFUSED
         val viewModel = createViewModel()
 
-        viewModel.messages.test {
-            viewModel.onDefaultPowerActionChange(PowerAction.SLEEP, isDefault = false)
+        viewModel.uiState.test {
+            viewModel.onAppUninstallConfirm(app)
 
-            assertEquals(RemoteMessage.DefaultPowerActionChanged(PowerAction.SLEEP, isDefault = false), awaitItem())
+            assertEquals(apps, expectMostRecentItem().tvApps)
+        }
+    }
+
+    @Test
+    fun `an uninstall that never reached the TV does not make the indicator blink`() = runTest {
+        val viewModel = createViewModel()
+        tvRepository.uninstallResult = AppUninstallResult.NOT_SENT
+
+        viewModel.uiState.test {
+            viewModel.onAppUninstallConfirm(createTvApp())
+
+            assertFalse(expectMostRecentItem().isCommandBlinking)
+        }
+    }
+
+    @Test
+    fun `clicking a system app opens its info on the TV`() = runTest {
+        val viewModel = createViewModel()
+        val app = createTvSystemApp(packageName = "com.android.settings")
+
+        viewModel.onSystemAppClick(app)
+
+        assertEquals(listOf(app), tvRepository.openedSystemApps)
+    }
+
+    @Test
+    fun `opening the info of a system app makes the indicator blink`() = runTest {
+        val viewModel = createViewModel()
+        val app = createTvSystemApp(label = "Settings")
+
+        viewModel.uiState.test {
+            viewModel.onSystemAppClick(app)
+
+            assertTrue(expectMostRecentItem().isCommandBlinking)
+        }
+    }
+
+    @Test
+    fun `a system app info that the TV did not accept does not make the indicator blink`() = runTest {
+        val viewModel = createViewModel()
+        tvRepository.commandsSucceed = false
+
+        viewModel.uiState.test {
+            viewModel.onSystemAppClick(createTvSystemApp())
+
+            assertFalse(expectMostRecentItem().isCommandBlinking)
         }
     }
 
@@ -391,5 +501,33 @@ class RemoteViewModelTest {
         viewModel.onBackClick(onDisconnected = { connectionStateWhenDisconnected = tvRepository.connectionState.value })
 
         assertEquals(TvConnectionState.Disconnected, connectionStateWhenDisconnected)
+    }
+
+    @Test
+    fun `the indicator stops blinking after a moment`() = runTest {
+        val viewModel = createViewModel()
+
+        viewModel.uiState.test {
+            viewModel.onKeyClick(RemoteKey.VOLUME_UP)
+            advanceTimeBy(CommandBlinkDuration)
+            runCurrent()
+
+            assertFalse(expectMostRecentItem().isCommandBlinking)
+        }
+    }
+
+    @Test
+    fun `a new command restarts the blink`() = runTest {
+        val viewModel = createViewModel()
+
+        viewModel.uiState.test {
+            viewModel.onKeyClick(RemoteKey.VOLUME_UP)
+            advanceTimeBy(CommandBlinkDuration / 2)
+            viewModel.onKeyClick(RemoteKey.VOLUME_UP)
+            advanceTimeBy(CommandBlinkDuration / 2 + CommandBlinkDuration / 4)
+            runCurrent()
+
+            assertTrue(expectMostRecentItem().isCommandBlinking)
+        }
     }
 }

@@ -46,4 +46,25 @@ class DebugActionCatalogTest {
 
         assertEquals(helperApk.localFile to helperApk.remotePath, push.localFile to push.remotePath)
     }
+
+    @Test
+    fun `the system apps action runs the helper of this build`() {
+        val commands = actions.single { it.name == "System apps" }.steps.filterIsInstance<DebugStep.RunCommand>()
+
+        assertTrue(commands.any { createRunHelperCommand(helperApk.remotePath) in it.command })
+    }
+
+    @Test
+    fun `the system apps action checks the helper file of this build`() {
+        val commands = actions.single { it.name == "System apps" }.steps.filterIsInstance<DebugStep.RunCommand>()
+
+        assertTrue(commands.first().command.contains(helperApk.remotePath))
+    }
+
+    @Test
+    fun `the system apps action does not print the helper output in full`() {
+        val commands = actions.single { it.name == "System apps" }.steps.filterIsInstance<DebugStep.RunCommand>()
+
+        assertTrue(commands.single { createRunHelperCommand(helperApk.remotePath) in it.command }.command.contains("uniq -c"))
+    }
 }

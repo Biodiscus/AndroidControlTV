@@ -18,17 +18,22 @@ import net.biodiscus.androidcontroltv.core.adb.TvConnector
 import net.biodiscus.androidcontroltv.core.adb.TvShell
 import net.biodiscus.androidcontroltv.core.adb.createKeyEventCommand
 import net.biodiscus.androidcontroltv.core.adb.createLaunchAppCommand
+import net.biodiscus.androidcontroltv.core.adb.createOpenAppInfoCommand
 import net.biodiscus.androidcontroltv.core.adb.createPowerActionCommand
+import net.biodiscus.androidcontroltv.core.adb.createTextInputCommand
+import net.biodiscus.androidcontroltv.core.adb.createUninstallAppCommand
 import net.biodiscus.androidcontroltv.core.cache.TvAppsCache
 import net.biodiscus.androidcontroltv.core.debug.DebugAction
 import net.biodiscus.androidcontroltv.core.debug.DebugActionRunner
 import net.biodiscus.androidcontroltv.core.debug.DebugReport
 import net.biodiscus.androidcontroltv.core.debug.createNotConnectedReport
+import net.biodiscus.androidcontroltv.core.model.AppUninstallResult
 import net.biodiscus.androidcontroltv.core.model.PowerAction
 import net.biodiscus.androidcontroltv.core.model.RemoteKey
 import net.biodiscus.androidcontroltv.core.model.TvAddress
 import net.biodiscus.androidcontroltv.core.model.TvApp
 import net.biodiscus.androidcontroltv.core.model.TvAppsState
+import net.biodiscus.androidcontroltv.core.model.TvSystemApp
 import net.biodiscus.androidcontroltv.core.model.TvConnectionState
 
 @Singleton
@@ -68,6 +73,8 @@ internal class AdbTvRepository @Inject constructor(
         return confirmConnectionWorks() && runCommandThatEndsTheConnection(command)
     }
 
+    override suspend fun sendText(text: String): Boolean = runCommandOrFail(createTextInputCommand(text))
+
     override fun loadApps(): Flow<TvAppsState> = flow {
         val address = (connectionState.value as? TvConnectionState.Connected)?.address
         if (address == null) {
@@ -89,10 +96,10 @@ internal class AdbTvRepository @Inject constructor(
 
         if (freshApps.hasNamesAndIcons) {
             appsCache.write(address, freshApps.apps)
-            return TvAppsState.Loaded(freshApps.apps)
+            return TvAppsState.Loaded(freshApps.apps, freshApps.systemApps)
         }
         // A list without real names and icons must never replace a cached list that has them.
-        return if (cachedApps == null) TvAppsState.Loaded(freshApps.apps) else null
+        return if (cachedApps == null) TvAppsState.Loaded(freshApps.apps, freshApps.systemApps) else null
     }
 
     private suspend fun loadFreshApps(): LoadedTvApps? {
@@ -120,6 +127,46 @@ internal class AdbTvRepository @Inject constructor(
     }
 
     override suspend fun launchApp(app: TvApp): Boolean = runCommandOrFail(createLaunchAppCommand(app))
+
+    override suspend fun openSystemAppInfo(app: TvSystemApp): Boolean = runCommandOrFail(createOpenAppInfoCommand(app))
+
+    override suspend fun uninstallApp(app: TvApp): AppUninstallResult {
+        val connectedShell = shell ?: return AppUninstallResult.NOT_SENT
+        val command = createUninstallAppCommand(app)
+        val result = try {
+            runUninstallCommand(connectedShell, command)
+        } catch (_: IOException) {
+            runUninstallCommandAfterReconnecting(command, brokenShell = connectedShell)
+        }
+        if (result == AppUninstallResult.UNINSTALLED) removeFromCachedApps(app)
+        return result
+    }
+
+    // A TV that keeps the app is a normal answer and not a broken connection, so unlike the other commands
+    // a refused uninstall does not mark the connection as failed.
+    private suspend fun runUninstallCommand(connectedShell: TvShell, command: String): AppUninstallResult =
+        try {
+            connectedShell.runCommand(command)
+            AppUninstallResult.UNINSTALLED
+        } catch (_: TvCommandFailedException) {
+            AppUninstallResult.REFUSED
+        }
+
+    private suspend fun runUninstallCommandAfterReconnecting(command: String, brokenShell: TvShell): AppUninstallResult {
+        val newShell = replaceBrokenShell(brokenShell) ?: return AppUninstallResult.NOT_SENT
+        return try {
+            runUninstallCommand(newShell, command)
+        } catch (error: IOException) {
+            failWith(error)
+            AppUninstallResult.NOT_SENT
+        }
+    }
+
+    private suspend fun removeFromCachedApps(app: TvApp) {
+        val address = (connectionState.value as? TvConnectionState.Connected)?.address ?: return
+        val cachedApps = appsCache.read(address) ?: return
+        appsCache.write(address, cachedApps.filterNot { it.packageName == app.packageName })
+    }
 
     override suspend fun runDebugAction(action: DebugAction): DebugReport {
         val connectedShell = shell ?: return createNotConnectedReport(action)

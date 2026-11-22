@@ -5,8 +5,11 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import net.biodiscus.androidcontroltv.core.adb.TvCommandFailedException
 import net.biodiscus.androidcontroltv.core.adb.createLaunchAppCommand
+import net.biodiscus.androidcontroltv.core.adb.createOpenAppInfoCommand
+import net.biodiscus.androidcontroltv.core.adb.createUninstallAppCommand
 import net.biodiscus.androidcontroltv.core.debug.DebugAction
 import net.biodiscus.androidcontroltv.core.debug.DebugStep
+import net.biodiscus.androidcontroltv.core.model.AppUninstallResult
 import net.biodiscus.androidcontroltv.core.model.PowerAction
 import net.biodiscus.androidcontroltv.core.model.RemoteKey
 import net.biodiscus.androidcontroltv.core.model.TvAddress
@@ -17,6 +20,7 @@ import net.biodiscus.androidcontroltv.testing.FakeTvAppsCache
 import net.biodiscus.androidcontroltv.testing.FakeTvConnector
 import net.biodiscus.androidcontroltv.testing.FakeTvShell
 import net.biodiscus.androidcontroltv.testing.createTvApp
+import net.biodiscus.androidcontroltv.testing.createTvSystemApp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -75,6 +79,23 @@ class AdbTvRepositoryTest {
         repository.sendKey(RemoteKey.VOLUME_UP)
 
         assertEquals(listOf("input keyevent KEYCODE_VOLUME_UP"), shell.receivedCommands)
+    }
+
+    @Test
+    fun `sending text runs the text input command on the TV`() = runTest {
+        repository.connect(tvAddress)
+
+        repository.sendText("star wars")
+
+        assertEquals(listOf("input text 'star%swars'"), shell.receivedCommands)
+    }
+
+    @Test
+    fun `sending text while disconnected does nothing`() = runTest {
+        val wasSent = repository.sendText("star wars")
+
+        assertFalse(wasSent)
+        assertTrue(shell.receivedCommands.isEmpty())
     }
 
     @Test
@@ -440,5 +461,118 @@ class AdbTvRepositoryTest {
         repository.disconnect()
 
         assertFalse(shell.isClosed)
+    }
+
+    @Test
+    fun `the fresh apps come with the system apps`() = runTest {
+        val freshApps = listOf(createTvApp())
+        val systemApps = listOf(createTvSystemApp())
+        appLoader.apps = freshApps
+        appLoader.systemApps = systemApps
+        repository.connect(tvAddress)
+
+        assertEquals(listOf(TvAppsState.Loaded(freshApps, systemApps)), loadAppStates())
+    }
+
+    @Test
+    fun `the cached apps are shown before the system apps are known`() = runTest {
+        val cachedApps = listOf(createTvApp(label = "Cached"))
+        val freshApps = listOf(createTvApp(label = "Fresh"))
+        val systemApps = listOf(createTvSystemApp())
+        appsCache.cachedApps[tvAddress] = cachedApps
+        appLoader.apps = freshApps
+        appLoader.systemApps = systemApps
+        repository.connect(tvAddress)
+
+        val expected = listOf(TvAppsState.Loaded(cachedApps), TvAppsState.Loaded(freshApps, systemApps))
+        assertEquals(expected, loadAppStates())
+    }
+
+    @Test
+    fun `opening the info of a system app runs the command on the TV`() = runTest {
+        val app = createTvSystemApp(packageName = "com.android.settings")
+        repository.connect(tvAddress)
+
+        repository.openSystemAppInfo(app)
+
+        assertEquals(listOf(createOpenAppInfoCommand(app)), shell.receivedCommands)
+    }
+
+    @Test
+    fun `opening the info of a system app reports that the TV accepted it`() = runTest {
+        repository.connect(tvAddress)
+
+        assertTrue(repository.openSystemAppInfo(createTvSystemApp()))
+    }
+
+    @Test
+    fun `opening the info of a system app while disconnected reports that nothing was sent`() = runTest {
+        assertFalse(repository.openSystemAppInfo(createTvSystemApp()))
+    }
+
+    @Test
+    fun `uninstalling an app runs the uninstall command on the TV`() = runTest {
+        val app = createTvApp(packageName = "com.netflix.ninja")
+        repository.connect(tvAddress)
+
+        repository.uninstallApp(app)
+
+        assertEquals(listOf(createUninstallAppCommand(app)), shell.receivedCommands)
+    }
+
+    @Test
+    fun `an uninstall that the TV accepts reports uninstalled`() = runTest {
+        repository.connect(tvAddress)
+
+        assertEquals(AppUninstallResult.UNINSTALLED, repository.uninstallApp(createTvApp()))
+    }
+
+    @Test
+    fun `an uninstall that the TV refuses reports refused`() = runTest {
+        val app = createTvApp()
+        repository.connect(tvAddress)
+        shell.failOn(createUninstallAppCommand(app), TvCommandFailedException("Failure [DELETE_FAILED_INTERNAL_ERROR]"))
+
+        assertEquals(AppUninstallResult.REFUSED, repository.uninstallApp(app))
+    }
+
+    @Test
+    fun `an uninstall that the TV refuses keeps the connection`() = runTest {
+        val app = createTvApp()
+        repository.connect(tvAddress)
+        shell.failOn(createUninstallAppCommand(app), TvCommandFailedException("Failure [DELETE_FAILED_INTERNAL_ERROR]"))
+
+        repository.uninstallApp(app)
+
+        assertEquals(TvConnectionState.Connected(tvAddress), repository.connectionState.value)
+    }
+
+    @Test
+    fun `uninstalling an app while disconnected reports that nothing was sent`() = runTest {
+        assertEquals(AppUninstallResult.NOT_SENT, repository.uninstallApp(createTvApp()))
+    }
+
+    @Test
+    fun `an uninstalled app is removed from the cached apps`() = runTest {
+        val removedApp = createTvApp(packageName = "com.removed")
+        val keptApp = createTvApp(packageName = "com.kept")
+        appsCache.cachedApps[tvAddress] = listOf(keptApp, removedApp)
+        repository.connect(tvAddress)
+
+        repository.uninstallApp(removedApp)
+
+        assertEquals(listOf(keptApp), appsCache.cachedApps[tvAddress])
+    }
+
+    @Test
+    fun `an app that stays installed stays in the cached apps`() = runTest {
+        val app = createTvApp()
+        appsCache.cachedApps[tvAddress] = listOf(app)
+        repository.connect(tvAddress)
+        shell.failOn(createUninstallAppCommand(app), TvCommandFailedException("Failure [DELETE_FAILED_INTERNAL_ERROR]"))
+
+        repository.uninstallApp(app)
+
+        assertEquals(listOf(app), appsCache.cachedApps[tvAddress])
     }
 }

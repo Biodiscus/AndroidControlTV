@@ -22,13 +22,16 @@
     <string name="remote_title">Remote control</string>
     <string name="remote_back_to_overview">Back to overview</string>
     <string name="remote_retry">Try again</string>
+    <string name="remote_indicator_connected">Connected</string>
+    <string name="remote_indicator_not_connected">Not connected</string>
 
-    <string name="remote_message_sent_to_tv">Sent to TV: %1$s</string>
-    <string name="remote_message_app_launched">Launched %1$s</string>
-    <string name="remote_message_favorite_added">Added %1$s to favorites</string>
-    <string name="remote_message_favorite_removed">Removed %1$s from favorites</string>
-    <string name="remote_message_default_set">%1$s is now the default for the power button</string>
-    <string name="remote_message_default_cleared">%1$s is no longer the default for the power button</string>
+    <string name="remote_message_app_uninstall_refused">The TV did not uninstall %1$s. It may be a system app.</string>
+
+    <string name="remote_open_text_input">Type on the TV</string>
+    <string name="remote_text_input_title">Type on the TV</string>
+    <string name="remote_text_input_label">Text to send</string>
+    <string name="remote_text_input_send">Send</string>
+    <string name="remote_text_input_cancel">Cancel</string>
 
     <string name="remote_apps_title">Apps</string>
     <string name="remote_apps_empty">No apps found on this TV.</string>
@@ -37,6 +40,15 @@
     <string name="remote_app_show_options">Show options</string>
     <string name="remote_app_add_favorite">Add to favorites</string>
     <string name="remote_app_remove_favorite">Remove from favorites</string>
+    <string name="remote_app_uninstall">Uninstall</string>
+    <string name="remote_uninstall_title">Uninstall %1$s?</string>
+    <string name="remote_uninstall_text">The app and its data are removed from the TV.</string>
+    <string name="remote_uninstall_confirm">Uninstall</string>
+    <string name="remote_uninstall_cancel">Cancel</string>
+    <string name="remote_system_apps_title">System apps</string>
+    <string name="remote_system_apps_show">Show system apps</string>
+    <string name="remote_system_apps_hide">Hide system apps</string>
+    <string name="remote_system_apps_hint">Tap a system app to open its info page on the TV.</string>
     <string name="remote_apps_unavailable">The apps of this TV could not be loaded.</string>
 
     <string name="power_menu_title">Power</string>

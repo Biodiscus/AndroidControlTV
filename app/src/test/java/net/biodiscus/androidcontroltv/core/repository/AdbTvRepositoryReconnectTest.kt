@@ -6,6 +6,8 @@ import kotlinx.coroutines.test.runTest
 import net.biodiscus.androidcontroltv.core.adb.CONNECTION_CHECK_COMMAND
 import net.biodiscus.androidcontroltv.core.adb.TvCommandFailedException
 import net.biodiscus.androidcontroltv.core.adb.createKeyEventCommand
+import net.biodiscus.androidcontroltv.core.adb.createUninstallAppCommand
+import net.biodiscus.androidcontroltv.core.model.AppUninstallResult
 import net.biodiscus.androidcontroltv.core.model.PowerAction
 import net.biodiscus.androidcontroltv.core.model.RemoteKey
 import net.biodiscus.androidcontroltv.core.model.TvAddress
@@ -16,6 +18,7 @@ import net.biodiscus.androidcontroltv.testing.FakeTvAppsCache
 import net.biodiscus.androidcontroltv.testing.FakeTvConnector
 import net.biodiscus.androidcontroltv.testing.FakeTvShell
 import net.biodiscus.androidcontroltv.testing.createTvApp
+import net.biodiscus.androidcontroltv.testing.createTvSystemApp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -135,6 +138,32 @@ class AdbTvRepositoryReconnectTest {
         connectAndBreakTheConnection()
 
         assertTrue(repository.launchApp(createTvApp()))
+    }
+
+    @Test
+    fun `an uninstall that hits a broken connection is sent again on a new connection`() = runTest {
+        val app = createTvApp()
+        connectAndBreakTheConnection()
+
+        val result = repository.uninstallApp(app)
+
+        assertEquals(AppUninstallResult.UNINSTALLED, result)
+        assertEquals(listOf(createUninstallAppCommand(app)), reconnectedShell.receivedCommands)
+    }
+
+    @Test
+    fun `an uninstall that cannot reconnect reports that nothing was sent`() = runTest {
+        connectAndBreakTheConnection()
+        connector.errorOnConnect = IOException("No route to host")
+
+        assertEquals(AppUninstallResult.NOT_SENT, repository.uninstallApp(createTvApp()))
+    }
+
+    @Test
+    fun `opening the info of a system app also reconnects`() = runTest {
+        connectAndBreakTheConnection()
+
+        assertTrue(repository.openSystemAppInfo(createTvSystemApp()))
     }
 
     @Test
